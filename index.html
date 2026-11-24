@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1769d2"><meta name="description" content="SEIF ID STUDIO - استوديو تجهيز صور الهوية والجواز للطباعة">
+<link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="app.css">
+<title>SEIF ID STUDIO</title>
+</head>
+<body>
+<header class="topbar"><a class="brand" href="#"><span class="brand-mark">ID</span><span><b>SEIF ID STUDIO</b><small>PHOTO PRINT WORKSPACE</small></span></a><div class="top-actions"><button id="installBtn" class="btn ghost" hidden>تثبيت التطبيق</button><button id="themeBtn" class="icon-btn" title="تغيير المظهر">◐</button></div></header>
+<main class="shell">
+<section class="intro"><div><span class="eyebrow">استوديو صور الهوية</span><h1>جهّز صورك للطباعة <em>بدقة واحتراف</em></h1><p>ارفع صورة، اختر المقاس وعدد النسخ، ثم صدّر ورقة جاهزة للطباعة.</p></div><div class="local-pill"><i></i> المعالجة على جهازك</div></section>
+<div class="workspace">
+<aside class="panel controls">
+<div class="panel-title"><span class="step">01</span><div><h2>الصورة والإعدادات</h2><p>ابدأ بصورة واضحة للوجه</p></div></div>
+<label class="upload" id="dropZone"><input type="file" id="photoInput" accept="image/*"><span class="upload-icon">＋</span><b>اختر صورة أو اسحبها هنا</b><small>JPG · PNG · WEBP</small></label>
+<div class="field"><label for="preset">مقاس الصورة</label><select id="preset"><option value="35x45">35 × 45 مم — جواز سفر</option><option value="30x40">30 × 40 مم</option><option value="40x60">40 × 60 مم</option><option value="25x35">25 × 35 مم</option><option value="custom">مقاس مخصص</option></select></div>
+<div class="two-fields" id="customFields" hidden><div class="field"><label>العرض (مم)</label><input id="customW" type="number" min="10" max="100" value="35"></div><div class="field"><label>الارتفاع (مم)</label><input id="customH" type="number" min="10" max="150" value="45"></div></div>
+<div class="two-fields"><div class="field"><label for="paper">حجم الورقة</label><select id="paper"><option value="100x150">10 × 15 سم</option><option value="a4">A4</option><option value="a5">A5</option><option value="130x180">13 × 18 سم</option></select></div><div class="field"><label for="count">عدد النسخ</label><input id="count" type="number" min="1" max="60" value="8"></div></div>
+<div class="two-fields"><div class="field"><label for="dpi">دقة التصدير</label><select id="dpi"><option value="300">300 DPI</option><option value="600">600 DPI</option></select></div><div class="field"><label for="gap">المسافة (مم)</label><input id="gap" type="number" min="0" max="10" value="2"></div></div>
+<div class="field"><label for="bg">لون خلفية الورقة</label><select id="bg"><option value="#ffffff">أبيض</option><option value="#f2f6fc">أبيض ثلجي</option></select></div>
+<div class="field"><label>خلفية الصورة <small class="hint">لاستبدال الخلفية يدوياً في إصدار لاحق</small></label><div class="swatches"><button class="swatch selected" data-photo-bg="#ffffff" style="--sw:#fff" aria-label="أبيض"></button><button class="swatch" data-photo-bg="#dcecff" style="--sw:#dcecff" aria-label="أزرق فاتح"></button><button class="swatch" data-photo-bg="#d9d9d9" style="--sw:#d9d9d9" aria-label="رمادي"></button></div></div>
+<div class="button-row"><button id="resetBtn" class="btn ghost">إعادة ضبط</button><button id="buildBtn" class="btn primary">تحديث المعاينة ←</button></div>
+</aside>
+<section class="panel preview-panel"><div class="preview-head"><div><span class="step">02</span><div><h2>معاينة ورقة الطباعة</h2><p id="sheetMeta">10 × 15 سم · 8 نسخ</p></div></div><span class="ready" id="status">بانتظار الصورة</span></div>
+<div class="canvas-wrap"><div id="sheet" class="sheet"><div class="empty-state"><span>▧</span><b>ستظهر ورقة الطباعة هنا</b><small>ارفع صورة للبدء</small></div></div></div>
+<div class="preview-foot"><span id="fitInfo">—</span><span>المعاينة تقريبية؛ الطباعة بالحجم الفعلي</span></div>
+<div class="export-grid"><button id="jpgBtn" class="btn primary" disabled>تنزيل JPG</button><button id="pngBtn" class="btn ghost" disabled>تنزيل PNG</button><button id="printBtn" class="btn ghost" disabled>طباعة / حفظ PDF</button></div>
+</section>
+</div>
+<footer>SEIF ID STUDIO <span>صنع بيد سيف</span><span>تعمل الصور محلياً دون رفعها إلى خادم</span></footer>
+</main>
+<script src="app.js"></script>
+</body></html>
