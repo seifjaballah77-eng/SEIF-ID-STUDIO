@@ -1,1 +1,1 @@
-{"appId":"com.seif.idstudio","appName":"SEIF ID STUDIO","webDir":".","bundledWebRuntime":false,"server":{"androidScheme":"https"}}
+{"appId":"com.seif.idstudio","appName":"SEIF ID STUDIO","webDir":"www","bundledWebRuntime":false,"server":{"androidScheme":"https"}}
