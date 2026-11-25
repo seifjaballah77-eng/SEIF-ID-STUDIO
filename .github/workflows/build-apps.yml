@@ -30,7 +30,7 @@ jobs:
           java-version: '17'
       - run: npm install
       - run: npx cap add android
-      - run: npm run build:android
+      - run: python scripts/prepare-android.py\n      - run: npm run build:android
       - run: cd android && chmod +x gradlew && ./gradlew assembleDebug
       - uses: actions/upload-artifact@v4
         with:
