@@ -1,65 +1,58 @@
 (()=>{'use strict';
-const $=id=>document.getElementById(id);let sourceImage=null,photoBg='#ffffff',deferredPrompt=null,lastLayout=null;let imageTransform={x:0,y:0,scale:1,rotation:0},activeFilter='original';
+const $=id=>document.getElementById(id);let sourceImage=null,photoBg='#ffffff',deferredPrompt=null,lastLayout=null;let imageTransform={x:0,y:0,scale:1,rotation:0},activeFilter='original';let blurStrokes=[],blurMode=false,currentBlurStroke=null;
 const presets={ '35x45':[35,45],'30x40':[30,40],'40x60':[40,60],'25x35':[25,35] };
 const papers={ '100x150':[100,150],a4:[210,297],a5:[148,210],'130x180':[130,180] };
 function dimensions(){let v=$('preset').value;return v==='custom'?[Math.max(10,+$('customW').value||35),Math.max(10,+$('customH').value||45)]:presets[v]}
 function paperSize(){let v=$('paper').value;return papers[v]}
 function mmPx(mm,dpi){return Math.round(mm/25.4*dpi)}
 function makeLayout(){const [pw,ph]=paperSize(),[w,h]=dimensions(),gap=Math.max(0,+$('gap').value||0),count=Math.min(60,Math.max(1,+$('count').value||1));let cols=Math.max(1,Math.floor((pw+gap)/(w+gap))),rows=Math.max(1,Math.floor((ph+gap)/(h+gap)));let fit=Math.min(count,cols*rows);return {pw,ph,w,h,gap,count,cols,rows,fit}}
-function render(){let l=makeLayout();lastLayout=l;let dpi=+$('dpi').value;let scale=Math.min(3.2,470/Math.max(l.pw,l.ph));let sheet=$('sheet');sheet.style.setProperty('--paper-w',l.pw+'mm');sheet.style.setProperty('--paper-h',l.ph+'mm');sheet.style.setProperty('--photo-w',l.w+'mm');sheet.style.setProperty('--photo-h',l.h+'mm');sheet.style.setProperty('--gap-mm',l.gap+'mm');sheet.style.setProperty('--cols',l.cols);sheet.style.width=(l.pw*scale)+'px';sheet.style.height=(l.ph*scale)+'px';sheet.style.gridTemplateColumns='repeat('+l.cols+','+(l.w*scale)+'px)';sheet.style.gridAutoRows=(l.h*scale)+'px';sheet.style.gap=(l.gap*scale)+'px';sheet.style.background=$('bg').value;sheet.innerHTML='';
+
+function drawPreviewBlur(img,canvas,width,height){if(!blurStrokes.length||!img.complete)return;const ratio=2,W=Math.max(1,Math.round(width*ratio)),H=Math.max(1,Math.round(height*ratio));canvas.width=W;canvas.height=H;canvas.style.width=width+'px';canvas.style.height=height+'px';const base=document.createElement('canvas');base.width=W;base.height=H;const b=base.getContext('2d');b.translate(W/2+imageTransform.x/100*W,H/2+imageTransform.y/100*H);b.rotate(imageTransform.rotation*Math.PI/180);b.scale(imageTransform.scale,imageTransform.scale);b.filter=getColorFilter();const cover=Math.max(W/img.naturalWidth,H/img.naturalHeight),dw=img.naturalWidth*cover,dh=img.naturalHeight*cover;b.drawImage(img,-dw/2,-dh/2,dw,dh);b.filter='none';const soft=document.createElement('canvas'),mask=document.createElement('canvas');soft.width=mask.width=W;soft.height=mask.height=H;const q=soft.getContext('2d'),m=mask.getContext('2d');q.filter='blur('+Math.max(7,W*.025)+'px)';q.drawImage(base,0,0);q.filter='none';for(const st of blurStrokes){if(!st.points.length)continue;m.beginPath();m.lineCap='round';m.lineJoin='round';m.strokeStyle='white';m.fillStyle='white';m.lineWidth=Math.max(8,st.radius*2*W);if(st.points.length===1){m.arc(st.points[0].x*W,st.points[0].y*H,Math.max(4,st.radius*W),0,Math.PI*2);m.fill()}else{m.moveTo(st.points[0].x*W,st.points[0].y*H);for(const p of st.points.slice(1))m.lineTo(p.x*W,p.y*H);m.stroke()}}q.globalCompositeOperation='destination-in';q.drawImage(mask,0,0);canvas.getContext('2d').clearRect(0,0,W,H);canvas.getContext('2d').drawImage(soft,0,0)}
+\nfunction render(){let l=makeLayout();lastLayout=l;let dpi=+$('dpi').value;let scale=Math.min(3.2,470/Math.max(l.pw,l.ph));let sheet=$('sheet');sheet.style.setProperty('--paper-w',l.pw+'mm');sheet.style.setProperty('--paper-h',l.ph+'mm');sheet.style.setProperty('--photo-w',l.w+'mm');sheet.style.setProperty('--photo-h',l.h+'mm');sheet.style.setProperty('--gap-mm',l.gap+'mm');sheet.style.setProperty('--cols',l.cols);sheet.style.width=(l.pw*scale)+'px';sheet.style.height=(l.ph*scale)+'px';sheet.style.gridTemplateColumns='repeat('+l.cols+','+(l.w*scale)+'px)';sheet.style.gridAutoRows=(l.h*scale)+'px';sheet.style.gap=(l.gap*scale)+'px';sheet.style.background=$('bg').value;sheet.innerHTML='';
 if(!sourceImage){$('transformEditor').hidden=true;$('colorStudio').hidden=true;sheet.innerHTML='<div class="empty-state"><span>▧</span><b>ستظهر ورقة الطباعة هنا</b><small>ارفع صورة للبدء</small></div>';return}
-$('transformEditor').hidden=false;$('colorStudio').hidden=false;updateTransformEditor();updateColorStudio();for(let i=0;i<l.fit;i++){let cell=document.createElement('div');cell.className='photo-cell';cell.style.width=(l.w*scale)+'px';cell.style.height=(l.h*scale)+'px';cell.style.background=photoBg;let img=document.createElement('img');img.src=sourceImage;img.alt='صورة شخصية';img.style.filter=getColorFilter();img.style.transform=getTransformCSS();cell.appendChild(img);sheet.appendChild(cell)}
+$('transformEditor').hidden=false;$('colorStudio').hidden=false;updateTransformEditor();updateColorStudio();for(let i=0;i<l.fit;i++){let cell=document.createElement('div');cell.className='photo-cell';cell.style.width=(l.w*scale)+'px';cell.style.height=(l.h*scale)+'px';cell.style.background=photoBg;let img=document.createElement('img');img.alt='صورة شخصية';img.style.filter=getColorFilter();img.style.transform=getTransformCSS();cell.appendChild(img);if(blurStrokes.length){let overlay=document.createElement('canvas');overlay.className='photo-blur-overlay';cell.appendChild(overlay);img.onload=()=>drawPreviewBlur(img,overlay,l.w*scale,l.h*scale)}img.src=sourceImage;sheet.appendChild(cell)}
 $('sheetMeta').textContent=l.pw+' × '+l.ph+' مم · '+l.fit+' / '+l.count+' نسخ';$('fitInfo').textContent='يتسع '+l.fit+' صور في الورقة'+(l.fit<l.count?' · يلزم '+Math.ceil(l.count/l.fit)+' أوراق':'');$('status').textContent='المعاينة جاهزة';$('status').classList.add('active');$('jpgBtn').disabled=$('pngBtn').disabled=$('printBtn').disabled=false}
-function loadFile(file){if(!file||!file.type.startsWith('image/'))return;let reader=new FileReader();reader.onload=()=>{let im=new Image();im.onload=()=>{sourceImage=reader.result;resetTransform();activeFilter='original';$('editBrightness').value=$('editContrast').value=$('editSaturation').value=100;render()};im.src=reader.result};reader.readAsDataURL(file)}
+function loadFile(file){if(!file||!file.type.startsWith('image/'))return;let reader=new FileReader();reader.onload=()=>{let im=new Image();im.onload=()=>{sourceImage=reader.result;blurStrokes=[];resetTransform();activeFilter='original';$('editBrightness').value=$('editContrast').value=$('editSaturation').value=100;render()};im.src=reader.result};reader.readAsDataURL(file)}
 
 const filterNames={original:'أصلي',bright:'مشرق',portrait:'بورتريه',warm:'دافئ',cool:'بارد',mono:'أبيض وأسود',vintage:'كلاسيكي'};
 const filterStyles={original:'none',bright:'brightness(1.16) contrast(1.05) saturate(1.18)',portrait:'brightness(1.07) contrast(.96) saturate(.94)',warm:'sepia(.18) saturate(1.2) brightness(1.04)',cool:'hue-rotate(10deg) saturate(.92) contrast(1.04)',mono:'grayscale(1)',vintage:'sepia(.32) contrast(.92) saturate(.82)'};
 function getColorFilter(){let base=filterStyles[activeFilter]||'';return (base==='none'?'':base+' ')+'brightness('+(+$('editBrightness').value/100)+') contrast('+(+$('editContrast').value/100)+') saturate('+(+$('editSaturation').value/100)+')'}
 function getTransformCSS(){return 'translate('+imageTransform.x+'%,'+imageTransform.y+'%) scale('+imageTransform.scale+') rotate('+imageTransform.rotation+'deg)'}
 function updateColorStudio(){if(!sourceImage)return;$('beforePhoto').src=sourceImage;$('afterPhoto').src=sourceImage;$('afterPhoto').style.filter=getColorFilter();$('activeFilterName').textContent=filterNames[activeFilter];document.querySelectorAll('.filter-chip').forEach(b=>b.classList.toggle('active',b.dataset.filter===activeFilter))}
-function updateTransformEditor(){if(!sourceImage)return;let [w,h]=dimensions();$('transformFrame').style.aspectRatio=w+'/'+h;if($('transformImage').getAttribute('src')!==sourceImage)$('transformImage').src=sourceImage;$('transformImage').style.transform=getTransformCSS();$('transformImage').style.filter=getColorFilter();$('transformScale').value=imageTransform.scale;$('transformRotate').value=imageTransform.rotation}
+function updateTransformEditor(){if(!sourceImage)return;let [w,h]=dimensions();$('transformFrame').style.aspectRatio=w+'/'+h;if($('transformImage').getAttribute('src')!==sourceImage)$('transformImage').src=sourceImage;$('transformImage').style.transform=getTransformCSS();$('transformImage').style.filter=getColorFilter();$('transformScale').value=imageTransform.scale;$('transformRotate').value=imageTransform.rotation;drawBlurOverlay()}
+function drawBlurOverlay(){const c=$('blurOverlay'),r=$('transformFrame').getBoundingClientRect();if(!c||!r.width||!r.height)return;c.width=Math.round(r.width*2);c.height=Math.round(r.height*2);const g=c.getContext('2d');g.clearRect(0,0,c.width,c.height);for(const stroke of blurStrokes){if(!stroke.points.length)continue;g.beginPath();g.lineCap='round';g.lineJoin='round';g.strokeStyle='rgba(25,105,210,.48)';g.fillStyle='rgba(25,105,210,.48)';g.lineWidth=stroke.radius*2*c.width;if(stroke.points.length===1){g.arc(stroke.points[0].x*c.width,stroke.points[0].y*c.height,stroke.radius*c.width,0,Math.PI*2);g.fill()}else{g.moveTo(stroke.points[0].x*c.width,stroke.points[0].y*c.height);for(const p of stroke.points.slice(1))g.lineTo(p.x*c.width,p.y*c.height);g.stroke()}}}
+function addBlurPoint(e){const r=$('transformFrame').getBoundingClientRect(),size=+$('blurSize').value;return {x:Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)),y:Math.max(0,Math.min(1,(e.clientY-r.top)/r.height)),radius:size/r.width/2}}
+function applyBlurToRegion(ctx,x,y,w,h){if(!blurStrokes.length)return;const base=document.createElement('canvas'),soft=document.createElement('canvas'),mask=document.createElement('canvas');[base,soft,mask].forEach(c=>{c.width=Math.max(1,Math.round(w));c.height=Math.max(1,Math.round(h))});const bw=base.width,bh=base.height,bctx=base.getContext('2d'),sctx=soft.getContext('2d'),mctx=mask.getContext('2d');bctx.drawImage(ctx.canvas,x,y,w,h,0,0,bw,bh);sctx.filter='blur('+Math.max(7,bw*.025)+'px)';sctx.drawImage(base,0,0);sctx.filter='none';for(const stroke of blurStrokes){if(!stroke.points.length)continue;mctx.beginPath();mctx.lineCap='round';mctx.lineJoin='round';mctx.strokeStyle='white';mctx.fillStyle='white';mctx.lineWidth=Math.max(8,stroke.radius*2*bw);if(stroke.points.length===1){mctx.arc(stroke.points[0].x*bw,stroke.points[0].y*bh,Math.max(4,stroke.radius*bw),0,Math.PI*2);mctx.fill()}else{mctx.moveTo(stroke.points[0].x*bw,stroke.points[0].y*bh);for(const p of stroke.points.slice(1))mctx.lineTo(p.x*bw,p.y*bh);mctx.stroke()}}sctx.globalCompositeOperation='destination-in';sctx.drawImage(mask,0,0);sctx.globalCompositeOperation='source-over';ctx.drawImage(soft,x,y,w,h)}
 function resetTransform(){imageTransform={x:0,y:0,scale:1,rotation:0};updateTransformEditor()}
-function drawEditedPhoto(ctx,img,x,y,w,h){ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();ctx.translate(x+w/2+imageTransform.x/100*w,y+h/2+imageTransform.y/100*h);ctx.rotate(imageTransform.rotation*Math.PI/180);ctx.scale(imageTransform.scale,imageTransform.scale);ctx.filter=getColorFilter();let ratio=Math.max(w/img.width,h/img.height),dw=img.width*ratio,dh=img.height*ratio;ctx.drawImage(img,-dw/2,-dh/2,dw,dh);ctx.restore()}
+function drawEditedPhoto(ctx,img,x,y,w,h){ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();ctx.translate(x+w/2+imageTransform.x/100*w,y+h/2+imageTransform.y/100*h);ctx.rotate(imageTransform.rotation*Math.PI/180);ctx.scale(imageTransform.scale,imageTransform.scale);ctx.filter=getColorFilter();let ratio=Math.max(w/img.width,h/img.height),dw=img.width*ratio,dh=img.height*ratio;ctx.drawImage(img,-dw/2,-dh/2,dw,dh);ctx.restore();applyBlurToRegion(ctx,x,y,w,h)}
 
 
 let activePointer=null,dragStart=null;
 const transformSurface=$('transformFrame');
 transformSurface.addEventListener('pointerdown',e=>{
  if(!sourceImage)return;
+ if(blurMode){activePointer=e.pointerId;try{transformSurface.setPointerCapture(activePointer)}catch(_){}currentBlurStroke={points:[addBlurPoint(e)],radius:addBlurPoint(e).radius};blurStrokes.push(currentBlurStroke);drawBlurOverlay();e.preventDefault();return}
  const handle=e.target.closest('[data-handle]')?.dataset.handle||'move';
  const r=transformSurface.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
- activePointer=e.pointerId;
- try{transformSurface.setPointerCapture(activePointer)}catch(_){}
+ activePointer=e.pointerId;try{transformSurface.setPointerCapture(activePointer)}catch(_){}
  dragStart={handle,x:e.clientX,y:e.clientY,tx:imageTransform.x,ty:imageTransform.y,scale:imageTransform.scale,rotation:imageTransform.rotation,dist:Math.max(8,Math.hypot(e.clientX-cx,e.clientY-cy)),angle:Math.atan2(e.clientY-cy,e.clientX-cx)};
  e.preventDefault();
 });
 transformSurface.addEventListener('pointermove',e=>{
- if(activePointer!==e.pointerId||!dragStart)return;
+ if(activePointer!==e.pointerId)return;
+ if(blurMode&&currentBlurStroke){currentBlurStroke.points.push(addBlurPoint(e));drawBlurOverlay();return}
+ if(!dragStart)return;
  const r=transformSurface.getBoundingClientRect(),dx=e.clientX-dragStart.x,dy=e.clientY-dragStart.y;
- if(dragStart.handle==='move'){
-  imageTransform.x=Math.max(-200,Math.min(200,dragStart.tx+dx/r.width*100));
-  imageTransform.y=Math.max(-200,Math.min(200,dragStart.ty+dy/r.height*100));
- }else if(dragStart.handle==='scale'){
-  const cx=r.left+r.width/2,cy=r.top+r.height/2;
-  const distance=Math.hypot(e.clientX-cx,e.clientY-cy);
-  imageTransform.scale=Math.max(.25,Math.min(4.5,dragStart.scale*(distance/dragStart.dist)));
- }else if(dragStart.handle==='rotate'){
-  const angle=Math.atan2(e.clientY-(r.top+r.height/2),e.clientX-(r.left+r.width/2));
-  let delta=(angle-dragStart.angle)*180/Math.PI;
-  if(delta>180)delta-=360;if(delta< -180)delta+=360;
-  imageTransform.rotation=dragStart.rotation+delta;
- }
+ if(dragStart.handle==='move'){imageTransform.x=Math.max(-200,Math.min(200,dragStart.tx+dx/r.width*100));imageTransform.y=Math.max(-200,Math.min(200,dragStart.ty+dy/r.height*100))}
+ else if(dragStart.handle==='scale'){const distance=Math.hypot(e.clientX-(r.left+r.width/2),e.clientY-(r.top+r.height/2));imageTransform.scale=Math.max(.25,Math.min(4.5,dragStart.scale*(distance/dragStart.dist)))}
+ else if(dragStart.handle==='rotate'){const angle=Math.atan2(e.clientY-(r.top+r.height/2),e.clientX-(r.left+r.width/2));let delta=(angle-dragStart.angle)*180/Math.PI;if(delta>180)delta-=360;if(delta< -180)delta+=360;imageTransform.rotation=dragStart.rotation+delta}
  updateTransformEditor();
 });
-function endTransform(e){
- if(activePointer!==e.pointerId)return;
- activePointer=null;dragStart=null;
- try{if(transformSurface.hasPointerCapture(e.pointerId))transformSurface.releasePointerCapture(e.pointerId)}catch(_){}
- render();
-}
-transformSurface.addEventListener('pointerup',endTransform);
-transformSurface.addEventListener('pointercancel',endTransform);
-transformSurface.addEventListener('lostpointercapture',()=>{activePointer=null;dragStart=null});
+function endTransform(e){if(activePointer!==e.pointerId)return;activePointer=null;dragStart=null;currentBlurStroke=null;try{if(transformSurface.hasPointerCapture(e.pointerId))transformSurface.releasePointerCapture(e.pointerId)}catch(_){}render()}
+transformSurface.addEventListener('pointerup',endTransform);transformSurface.addEventListener('pointercancel',endTransform);transformSurface.addEventListener('lostpointercapture',()=>{activePointer=null;dragStart=null;currentBlurStroke=null});
+$('blurMode').onclick=()=>{blurMode=!blurMode;$('blurMode').classList.toggle('active',blurMode);$('blurMode').setAttribute('aria-pressed',String(blurMode));$('blurMode').textContent=blurMode?'فرشاة التمويه: تعمل':'فرشاة التمويه: متوقفة';$('blurHint').textContent=blurMode?'مرّر إصبعك فوق الوجه أو المنطقة المراد إخفاؤها.':'فعّل الفرشاة أولاً ثم ارسم فوق الوجه.';transformSurface.style.cursor=blurMode?'crosshair':'grab'};
+$('blurUndo').onclick=()=>{blurStrokes.pop();drawBlurOverlay();render()};
+$('blurClear').onclick=()=>{blurStrokes=[];drawBlurOverlay();render()};
 $('transformScale').min='.25';$('transformScale').max='4.5';
 $('transformScale').oninput=e=>{imageTransform.scale=+e.target.value;updateTransformEditor()};
 $('transformScale').onchange=render;
