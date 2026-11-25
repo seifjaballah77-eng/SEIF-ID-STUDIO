@@ -14,21 +14,60 @@ function loadFile(file){if(!file||!file.type.startsWith('image/'))return;let rea
 
 const filterNames={original:'أصلي',bright:'مشرق',portrait:'بورتريه',warm:'دافئ',cool:'بارد',mono:'أبيض وأسود',vintage:'كلاسيكي'};
 const filterStyles={original:'none',bright:'brightness(1.16) contrast(1.05) saturate(1.18)',portrait:'brightness(1.07) contrast(.96) saturate(.94)',warm:'sepia(.18) saturate(1.2) brightness(1.04)',cool:'hue-rotate(10deg) saturate(.92) contrast(1.04)',mono:'grayscale(1)',vintage:'sepia(.32) contrast(.92) saturate(.82)'};
-function getColorFilter(){return (filterStyles[activeFilter]||'none')+' brightness('+(+$('editBrightness').value/100)+') contrast('+(+$('editContrast').value/100)+') saturate('+(+$('editSaturation').value/100)+')'}
+function getColorFilter(){let base=filterStyles[activeFilter]||'';return (base==='none'?'':base+' ')+'brightness('+(+$('editBrightness').value/100)+') contrast('+(+$('editContrast').value/100)+') saturate('+(+$('editSaturation').value/100)+')'}
 function getTransformCSS(){return 'translate('+imageTransform.x+'%,'+imageTransform.y+'%) scale('+imageTransform.scale+') rotate('+imageTransform.rotation+'deg)'}
 function updateColorStudio(){if(!sourceImage)return;$('beforePhoto').src=sourceImage;$('afterPhoto').src=sourceImage;$('afterPhoto').style.filter=getColorFilter();$('activeFilterName').textContent=filterNames[activeFilter];document.querySelectorAll('.filter-chip').forEach(b=>b.classList.toggle('active',b.dataset.filter===activeFilter))}
-function updateTransformEditor(){if(!sourceImage)return;let [w,h]=dimensions();$('transformFrame').style.aspectRatio=w+'/'+h;$('transformImage').src=sourceImage;$('transformImage').style.transform=getTransformCSS();$('transformImage').style.filter=getColorFilter();$('transformScale').value=imageTransform.scale;$('transformRotate').value=imageTransform.rotation}
+function updateTransformEditor(){if(!sourceImage)return;let [w,h]=dimensions();$('transformFrame').style.aspectRatio=w+'/'+h;if($('transformImage').getAttribute('src')!==sourceImage)$('transformImage').src=sourceImage;$('transformImage').style.transform=getTransformCSS();$('transformImage').style.filter=getColorFilter();$('transformScale').value=imageTransform.scale;$('transformRotate').value=imageTransform.rotation}
 function resetTransform(){imageTransform={x:0,y:0,scale:1,rotation:0};updateTransformEditor()}
 function drawEditedPhoto(ctx,img,x,y,w,h){ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();ctx.translate(x+w/2+imageTransform.x/100*w,y+h/2+imageTransform.y/100*h);ctx.rotate(imageTransform.rotation*Math.PI/180);ctx.scale(imageTransform.scale,imageTransform.scale);ctx.filter=getColorFilter();let ratio=Math.max(w/img.width,h/img.height),dw=img.width*ratio,dh=img.height*ratio;ctx.drawImage(img,-dw/2,-dh/2,dw,dh);ctx.restore()}
 
 
 let activePointer=null,dragStart=null;
-$('transformFrame').addEventListener('pointerdown',e=>{if(!sourceImage)return;let handle=e.target.dataset.handle||'move',r=$('transformFrame').getBoundingClientRect();activePointer=e.pointerId;$('transformFrame').setPointerCapture(activePointer);dragStart={handle,x:e.clientX,y:e.clientY,tx:imageTransform.x,ty:imageTransform.y,scale:imageTransform.scale,rotation:imageTransform.rotation,dist:Math.hypot(e.clientX-(r.left+r.width/2),e.clientY-(r.top+r.height/2)),angle:Math.atan2(e.clientY-(r.top+r.height/2),e.clientX-(r.left+r.width/2))};e.preventDefault()});
-$('transformFrame').addEventListener('pointermove',e=>{if(activePointer!==e.pointerId||!dragStart)return;let r=$('transformFrame').getBoundingClientRect(),dx=e.clientX-dragStart.x,dy=e.clientY-dragStart.y;if(dragStart.handle==='move'){imageTransform.x=Math.max(-150,Math.min(150,dragStart.tx+dx/r.width*100));imageTransform.y=Math.max(-150,Math.min(150,dragStart.ty+dy/r.height*100))}else if(dragStart.handle==='scale'){let dist=Math.hypot(e.clientX-(r.left+r.width/2),e.clientY-(r.top+r.height/2));imageTransform.scale=Math.max(1,Math.min(3.5,dragStart.scale+(dist-dragStart.dist)/Math.max(r.width,r.height)*2))}else if(dragStart.handle==='rotate'){let a=Math.atan2(e.clientY-(r.top+r.height/2),e.clientX-(r.left+r.width/2));imageTransform.rotation=dragStart.rotation+(a-dragStart.angle)*180/Math.PI}updateTransformEditor()});
-function endTransform(e){if(activePointer===e.pointerId){activePointer=null;dragStart=null;render()}}
-$('transformFrame').addEventListener('pointerup',endTransform);$('transformFrame').addEventListener('pointercancel',endTransform);
-$('transformScale').oninput=e=>{imageTransform.scale=+e.target.value;updateTransformEditor()};$('transformScale').onchange=render;$('transformRotate').oninput=e=>{imageTransform.rotation=+e.target.value;updateTransformEditor()};$('transformRotate').onchange=render;
-$('rotateLeft').onclick=()=>{imageTransform.rotation-=90;updateTransformEditor();render()};$('rotateRight').onclick=()=>{imageTransform.rotation+=90;updateTransformEditor();render()};$('transformReset').onclick=()=>{resetTransform();render()};
+const transformSurface=$('transformFrame');
+transformSurface.addEventListener('pointerdown',e=>{
+ if(!sourceImage)return;
+ const handle=e.target.closest('[data-handle]')?.dataset.handle||'move';
+ const r=transformSurface.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
+ activePointer=e.pointerId;
+ try{transformSurface.setPointerCapture(activePointer)}catch(_){}
+ dragStart={handle,x:e.clientX,y:e.clientY,tx:imageTransform.x,ty:imageTransform.y,scale:imageTransform.scale,rotation:imageTransform.rotation,dist:Math.max(8,Math.hypot(e.clientX-cx,e.clientY-cy)),angle:Math.atan2(e.clientY-cy,e.clientX-cx)};
+ e.preventDefault();
+});
+transformSurface.addEventListener('pointermove',e=>{
+ if(activePointer!==e.pointerId||!dragStart)return;
+ const r=transformSurface.getBoundingClientRect(),dx=e.clientX-dragStart.x,dy=e.clientY-dragStart.y;
+ if(dragStart.handle==='move'){
+  imageTransform.x=Math.max(-200,Math.min(200,dragStart.tx+dx/r.width*100));
+  imageTransform.y=Math.max(-200,Math.min(200,dragStart.ty+dy/r.height*100));
+ }else if(dragStart.handle==='scale'){
+  const cx=r.left+r.width/2,cy=r.top+r.height/2;
+  const distance=Math.hypot(e.clientX-cx,e.clientY-cy);
+  imageTransform.scale=Math.max(.25,Math.min(4.5,dragStart.scale*(distance/dragStart.dist)));
+ }else if(dragStart.handle==='rotate'){
+  const angle=Math.atan2(e.clientY-(r.top+r.height/2),e.clientX-(r.left+r.width/2));
+  let delta=(angle-dragStart.angle)*180/Math.PI;
+  if(delta>180)delta-=360;if(delta< -180)delta+=360;
+  imageTransform.rotation=dragStart.rotation+delta;
+ }
+ updateTransformEditor();
+});
+function endTransform(e){
+ if(activePointer!==e.pointerId)return;
+ activePointer=null;dragStart=null;
+ try{if(transformSurface.hasPointerCapture(e.pointerId))transformSurface.releasePointerCapture(e.pointerId)}catch(_){}
+ render();
+}
+transformSurface.addEventListener('pointerup',endTransform);
+transformSurface.addEventListener('pointercancel',endTransform);
+transformSurface.addEventListener('lostpointercapture',()=>{activePointer=null;dragStart=null});
+$('transformScale').min='.25';$('transformScale').max='4.5';
+$('transformScale').oninput=e=>{imageTransform.scale=+e.target.value;updateTransformEditor()};
+$('transformScale').onchange=render;
+$('transformRotate').oninput=e=>{imageTransform.rotation=+e.target.value;updateTransformEditor()};
+$('transformRotate').onchange=render;
+$('rotateLeft').onclick=()=>{imageTransform.rotation-=90;updateTransformEditor();render()};
+$('rotateRight').onclick=()=>{imageTransform.rotation+=90;updateTransformEditor();render()};
+$('transformReset').onclick=()=>{resetTransform();render()};
 document.querySelectorAll('.filter-chip').forEach(b=>b.onclick=()=>{activeFilter=b.dataset.filter;updateColorStudio();updateTransformEditor();render()});
 $('colorReset').onclick=()=>{activeFilter='original';$('editBrightness').value=$('editContrast').value=$('editSaturation').value=100;updateColorStudio();updateTransformEditor();render()};
 ['editBrightness','editContrast','editSaturation'].forEach(id=>$(id).addEventListener('input',()=>{updateColorStudio();updateTransformEditor();render()}));
