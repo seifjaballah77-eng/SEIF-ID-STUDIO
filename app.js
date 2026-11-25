@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const $=id=>document.getElementById(id);let sourceImage=null,photoBg='#ffffff',deferredPrompt=null,lastLayout=null;
+const $=id=>document.getElementById(id);let sourceImage=null,photoBg='#ffffff',deferredPrompt=null,lastLayout=null;let imageTransform={x:0,y:0,scale:1,rotation:0},activeFilter='original';
 const presets={ '35x45':[35,45],'30x40':[30,40],'40x60':[40,60],'25x35':[25,35] };
 const papers={ '100x150':[100,150],a4:[210,297],a5:[148,210],'130x180':[130,180] };
 function dimensions(){let v=$('preset').value;return v==='custom'?[Math.max(10,+$('customW').value||35),Math.max(10,+$('customH').value||45)]:presets[v]}
